@@ -296,5 +296,40 @@ namespace System.Security.Cryptography.X509Certificates
 
 			return certificate;
 		}
+
+		/// <summary>
+		/// Установка пароля доступа к контейнеру.
+		/// </summary>
+		/// <param name="certificate">Сертификат</param>
+		/// <param name="password">Пароль</param>
+		public static void SetContainerPassword(this X509Certificate2 certificate, string password)
+		{
+			if (certificate == null)
+			{
+				throw ExceptionUtility.ArgumentNull(nameof(certificate));
+			}
+
+			if (!String.IsNullOrEmpty(password))
+			{
+				var secureString = new SecureString();
+				foreach (var chr in password)
+				{
+					secureString.AppendChar(chr);
+				}
+
+				switch (certificate.GetPrivateKeyAlgorithm())
+				{
+					case Gost_R3410_2012_512_AsymmetricAlgorithm pk_2012_512:
+						pk_2012_512.SetContainerPassword(secureString);
+						break;
+					case Gost_R3410_2012_256_AsymmetricAlgorithm pk_2012_256:
+						pk_2012_256.SetContainerPassword(secureString);
+						break;
+					case Gost_R3410_2001_AsymmetricAlgorithm pk_2001:
+						pk_2001.SetContainerPassword(secureString);
+						break;
+				}
+			}
+		}
 	}
 }
