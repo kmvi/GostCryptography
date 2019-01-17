@@ -331,5 +331,94 @@ namespace System.Security.Cryptography.X509Certificates
 				}
 			}
 		}
+
+		public static X509Certificate2 FixCertificate(this X509Certificate2 certificate)
+		{
+			if (certificate == null)
+			{
+				throw ExceptionUtility.ArgumentNull(nameof(certificate));
+			}
+
+			FixPrivateKey(certificate);
+			FixPublicKey(certificate);
+
+			return certificate;
+		}
+
+		private static bool PrivateKeyAlreadyFixed(X509Certificate2 certificate)
+		{
+			try
+			{
+				return certificate.PrivateKey is Gost_R3410_2012_512_AsymmetricAlgorithm
+					|| certificate.PrivateKey is Gost_R3410_2012_256_AsymmetricAlgorithm
+					|| certificate.PrivateKey is Gost_R3410_2001_AsymmetricAlgorithm;
+			}
+			catch (NotSupportedException)
+			{
+				return false;
+			}
+		}
+
+		private static volatile FieldInfo _certPrivateKeyField;
+		private static readonly object CertPrivateKeyFieldSync = new object();
+
+		private static void FixPrivateKey(X509Certificate2 certificate)
+		{
+			if (!certificate.HasPrivateKey || PrivateKeyAlreadyFixed(certificate))
+			{
+				return;
+			}
+
+			if (_certPrivateKeyField == null)
+			{
+				lock (CertPrivateKeyFieldSync)
+				{
+					if (_certPrivateKeyField == null)
+					{
+						_certPrivateKeyField = typeof(X509Certificate2).GetField("m_privateKey", BindingFlags.Instance | BindingFlags.NonPublic);
+					}
+				}
+			}
+
+			_certPrivateKeyField.SetValue(certificate, certificate.GetPrivateKeyAlgorithm());
+		}
+
+		private static bool PublicKeyAlreadyFixed(X509Certificate2 cert)
+		{
+			try
+			{
+				return cert.PublicKey.Key is Gost_R3410_2012_512_AsymmetricAlgorithm
+					|| cert.PublicKey.Key is Gost_R3410_2012_256_AsymmetricAlgorithm
+					|| cert.PublicKey.Key is Gost_R3410_2001_AsymmetricAlgorithm;
+			}
+			catch (NotSupportedException)
+			{
+				return false;
+			}
+		}
+
+		private static volatile FieldInfo _certKeyField;
+		private static readonly object CertKeyFieldSync = new object();
+
+		private static void FixPublicKey(X509Certificate2 certificate)
+		{
+			if (PublicKeyAlreadyFixed(certificate))
+			{
+				return;
+			}
+
+			if (_certKeyField == null)
+			{
+				lock (CertKeyFieldSync)
+				{
+					if (_certKeyField == null)
+					{
+						_certKeyField = typeof(PublicKey).GetField("m_key", BindingFlags.Instance | BindingFlags.NonPublic);
+					}
+				}
+			}
+
+			_certKeyField.SetValue(certificate.PublicKey, certificate.GetPublicKeyAlgorithm());
+		}
 	}
 }
